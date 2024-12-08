@@ -3,11 +3,13 @@ import signal
 import threading
 from typing import Tuple
 import sys
+from server import Server
 
 
 BUFFER_SIZE = 4096
 
-class ProxyServer:
+
+class ProxyServer(Server):
     """Server that act as proxy between the client and the backend servers.
     
     Implemented: 
@@ -25,27 +27,15 @@ class ProxyServer:
         """
         Initializes the instance - setting up the proxy server.
         """
-        self._port = port
-        self._address = address
-        self.__server: socket.socket = None
-        self._backlog = 10
-        self.__clients = {}
+        super().__init__(address, port)
+
 
     def start(self):
         signal.signal(signal.SIGINT, self.shutdown)
-        self.__server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        # Reuse the address and port imediatly without waiting for the TIME_WAIT state by OS.
-        self.__server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.__server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-
-        self.__server.bind((self._address, self._port))
-        self.__server.listen(self._backlog)
-
-        print(f"Starting proxy server at port: {self._port}")
+        self.start_server()
         
         while True:
-            clientSocket, clientAddr = self.__server.accept()
+            clientSocket, clientAddr = self.accept()
 
             # Spin up a new thread for each socket connection.
             thread = threading.Thread(
@@ -64,9 +54,8 @@ class ProxyServer:
             if t is main_thread:
                 continue
             t.join()
-            self.__server.close()
-        
-        print("Shutting server down gracefully.")
+
+        self.close_server()
         sys.exit(0)
     
 
@@ -85,16 +74,14 @@ class ProxyServer:
             print("Unable to resolve the port and server, Aborting the request.")
             return
         
-        destination_server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # destination_server.settimeout(10)
-        destination_server.connect((webserver, port))
-        destination_server.sendall(request)
+        destination_server = Server(webserver, port)
+        destination_server.forward(request)
+        
         while True:
             try:
                 data = destination_server.recv(BUFFER_SIZE)
                 if data:
-                    print("response: ", data)
-                    clientSocket.send(data)
+                    clientSocket.sendall(data)
                 else:
                     break
             except Exception as e:
