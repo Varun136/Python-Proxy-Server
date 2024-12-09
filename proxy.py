@@ -4,9 +4,11 @@ import threading
 from typing import Tuple
 import sys
 from server import Server
+from load_balancer import LoadBalancer
+from constants import BUFFER_SIZE, BACKEND_SERVERS
 
 
-BUFFER_SIZE = 4096
+
 
 
 class ProxyServer(Server):
@@ -28,6 +30,7 @@ class ProxyServer(Server):
         Initializes the instance - setting up the proxy server.
         """
         super().__init__(address, port)
+        self._load_balancer = LoadBalancer(BACKEND_SERVERS)
 
 
     def start(self):
@@ -37,10 +40,11 @@ class ProxyServer(Server):
         while True:
             clientSocket, clientAddr = self.accept()
 
-            # Spin up a new thread for each socket connection.
+            # Get the server using load balancer and forward the request to the BE server.
+            serverAddr = self._load_balancer.select_server(clientAddr)
             thread = threading.Thread(
                 target=self.proxy_request_to_server,
-                args=(clientSocket,),
+                args=(clientSocket, serverAddr),
             )
             thread.daemon = True
             thread.start()
@@ -59,23 +63,18 @@ class ProxyServer(Server):
         sys.exit(0)
     
 
-    def proxy_request_to_server(self, clientSocket: socket.socket):
-        """Forward the request to the destination server
-
+    def proxy_request_to_server(self, clientSocket: socket.socket, serverAddr: Tuple[str, int]):
+        """
         Get the domain name and port of the destination server and forward the 
         request data and receive the response to send it back to the 
         client socket.  
         """
 
         request = clientSocket.recv(BUFFER_SIZE)
-        url = self.__get_url_from_request(request)
-        port, webserver = self.__get_port_and_server(url)
-        if not (port or webserver):
-            print("Unable to resolve the port and server, Aborting the request.")
-            return
-        
+
+        webserver, port = serverAddr
         destination_server = Server(webserver, port)
-        destination_server.forward(request)
+        destination_server.sendall(request)
         
         while True:
             try:
@@ -87,37 +86,6 @@ class ProxyServer(Server):
             except Exception as e:
                 print("Error: ", e)
                 break
-
-    
-    def __get_url_from_request(self, request):
-        """Get the url from the decoded request"""
-
-        request_str = request.decode("utf-8")
-        url_pos = request_str.find("Host:")
-        return request_str[url_pos+5:].split("\n")[0]
-    
-
-    def __get_port_and_server(self, url: str) -> Tuple[int, str]:
-        """Retrieve the port number and the webserver name from the url"""
-
-        port = None
-        webserver = None
-        temp_url = url
-
-        port_pos = temp_url.find(":")
-        webserver_pos = temp_url.find("/")
-
-        if webserver_pos == -1:
-            webserver_pos = len(temp_url)
-        
-        if (port_pos == -1) or (webserver_pos < port_pos):
-            port = 80
-            webserver = temp_url[:webserver_pos]
-        else:
-            port = temp_url[port_pos+1: webserver_pos]
-            webserver = temp_url[:port_pos]
-        
-        return int(port), webserver.strip()
 
 
     def set_backlog(self, backlog: int):
