@@ -22,7 +22,7 @@ class LoadBalancer:
     def _check_server_health(self, interval: int = 10):
         """Check the health status of servers every 10 minutes
         
-        interval: time interval between health checks, default: 10mins
+        interval: time interval between health checks, default: 10 mins
         """
         while True:
             with self._lock:
@@ -41,7 +41,7 @@ class LoadBalancer:
         """Add new server to load balancer."""
 
         if self._servers.get(server_address, None):
-            raise Exception("Warning: Server already added.")
+            raise Exception("Server already added.")
 
         try:
             connection = socket.create_connection(server_address, timeout=2)
@@ -49,7 +49,7 @@ class LoadBalancer:
             self._servers[server_address] = True
         except Exception as e:
             self._servers[server_address] = False
-            raise Exception("Warning: Provided server is found unhealthy")
+            raise Exception("Provided server is found unhealthy")
     
 
     def remove_server(self, server_address):
@@ -59,14 +59,14 @@ class LoadBalancer:
             print("Warning: Server unavailable to delete")
         
         with self._lock:
-            del self._servers(server_address)
+            del self._servers[server_address]
         return
 
     def set_algorithm(self, algorithm):
         """Update the load balancing algorithm."""
 
         if algorithm not in LoadBalancingAlgorithms:
-            raise ValueError(f"Warning: Either {algorithm} is not supported yet, or not valid.")
+            raise NotImplementedError(f"Warning: Either {algorithm} is not supported yet, or not valid.")
         with self._lock:
             self._algorithm = algorithm
 

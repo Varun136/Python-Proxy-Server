@@ -3,15 +3,12 @@ import signal
 import threading
 from typing import Tuple
 import sys
-from server import Server
+from server import Connection
 from load_balancer import LoadBalancer
 from constants import BUFFER_SIZE, BACKEND_SERVERS
 
 
-
-
-
-class ProxyServer(Server):
+class ProxyServer:
     """Server that act as proxy between the client and the backend servers.
     
     Implemented: 
@@ -25,67 +22,69 @@ class ProxyServer(Server):
         1. Logging.
     """
 
-    def __init__(self, port: int, address: str):
+    def __init__(self, server_addr: Tuple[str, int]):
         """
         Initializes the instance - setting up the proxy server.
         """
-        super().__init__(address, port)
+        self._proxy_server = Connection(server_addr)
         self._load_balancer = LoadBalancer(BACKEND_SERVERS)
 
 
     def start(self):
         signal.signal(signal.SIGINT, self.shutdown)
-        self.start_server()
+        self._proxy_server.start()
         
         while True:
-            clientSocket, clientAddr = self.accept()
+            client_socket, client_addr = self._proxy_server.accept()
 
             # Get the server using load balancer and forward the request to the BE server.
-            serverAddr = self._load_balancer.select_server(clientAddr)
-            thread = threading.Thread(
-                target=self.proxy_request_to_server,
-                args=(clientSocket, serverAddr),
-            )
-            thread.daemon = True
-            thread.start()
+            try:
+                backend_server_addr = self._load_balancer.select_server(client_addr)
+                thread = threading.Thread(
+                    target=self.proxy_request_to_server,
+                    args=(client_socket, backend_server_addr),
+                )
+                thread.daemon = True
+                thread.start()
+            
+            except Exception as e:
+                print("Unable to continue with the request at the moment, error: ", e)
 
 
     def shutdown(self, signum, frame):
         """ Handle the exiting server. Clean all traces """
 
-        main_thread = threading.currentThread() # Wait for all clients to exit
+        main_thread = threading.currentThread()
         for t in threading.enumerate():
             if t is main_thread:
                 continue
             t.join()
-
-        self.close_server()
+            self.shutdown(signum, frame)
         sys.exit(0)
     
 
-    def proxy_request_to_server(self, clientSocket: socket.socket, serverAddr: Tuple[str, int]):
+    def proxy_request_to_server(self, client_socket: socket.socket, backend_server_addr: Tuple[str, int]):
         """
         Get the domain name and port of the destination server and forward the 
         request data and receive the response to send it back to the 
         client socket.  
         """
 
-        request = clientSocket.recv(BUFFER_SIZE)
+        request = client_socket.recv(BUFFER_SIZE)
 
-        webserver, port = serverAddr
-        destination_server = Server(webserver, port)
-        destination_server.sendall(request)
+        server_socket = Connection(backend_server_addr)
+        server_socket.sendall(request)
         
         while True:
-            try:
-                data = destination_server.recv(BUFFER_SIZE)
-                if data:
-                    clientSocket.sendall(data)
-                else:
-                    break
-            except Exception as e:
-                print("Error: ", e)
-                break
+            response = server_socket.recv(BUFFER_SIZE)
+            if not response: break
+
+            client_socket.sendall(response)
+
+            # unlesss 'keep-alive' is received from the header of the request.
+            client_socket.close()
+            server_socket.close()
+
 
 
     def set_backlog(self, backlog: int):
