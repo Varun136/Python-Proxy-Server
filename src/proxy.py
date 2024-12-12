@@ -1,28 +1,25 @@
 import socket
 import signal
 import threading
-from typing import Tuple
+from typing import Tuple, List
 import sys
-from server import Connection
-from load_balancer import LoadBalancer
-from constants import BUFFER_SIZE, BACKEND_SERVERS
+from src.connection import Connection
+from src.load_balancer import LoadBalancer
+from src.config import BUFFER_SIZE
 
 
 class ProxyServer:
-    """
-    Server that act as reverse proxy between the client and the backend servers.
-    fetaures:
-        1. URL rerouting.
-        2. Load balancing.
-        3. Caching.
+    """Server that act as proxy between the client and the backend servers.
     """
 
-    def __init__(self, server_addr: Tuple[str, int]):
+    def __init__(self, server_addr: Tuple[str, int], backend_servers: List[Tuple]):
         """
         Initializes the instance - setting up the proxy server.
         """
         self._proxy_server = Connection(server_addr)
-        self._load_balancer = LoadBalancer(BACKEND_SERVERS)
+        self._load_balancer = LoadBalancer(backend_servers)
+
+        self._buffer_size = BUFFER_SIZE
 
 
     def start(self):
@@ -58,20 +55,23 @@ class ProxyServer:
         sys.exit(0)
     
 
-    def proxy_request_to_server(self, client_socket: socket.socket, backend_server_addr: Tuple[str, int]):
+    def proxy_request_to_server(self, 
+            client_socket: socket.socket, 
+            backend_server_addr: Tuple[str, int]
+        ):
         """
         Get the domain name and port of the destination server and forward the 
         request data and receive the response to send it back to the 
         client socket.  
         """
 
-        request = client_socket.recv(BUFFER_SIZE)
+        request = client_socket.recv(self._buffer_size)
 
         server_socket = Connection(backend_server_addr)
         server_socket.sendall(request)
         
         while True:
-            response = server_socket.recv(BUFFER_SIZE)
+            response = server_socket.recv(self._buffer_size)
             if not response: break
 
             client_socket.sendall(response)
@@ -90,7 +90,13 @@ class ProxyServer:
         self._backlog = backlog
     
 
-    
+    def set_buffer_size(self, buffer_size: int):
+        """Update the buffer size of the proxy connection"""
+
+        if buffer_size % 1024 != 0:
+            raise ValueError("Inavlid buffer size")
+        self._buffer_size = buffer_size
+
 
 
 

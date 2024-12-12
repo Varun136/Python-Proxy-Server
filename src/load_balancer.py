@@ -4,8 +4,8 @@ import time
 import socket
 import hashlib
 import redis
-from constants import LoadBalancingAlgorithms
-from cache import connection_pool
+from src.constants import LoadBalancingAlgorithms
+from src.config import CONNECTION_POOL
 
 
 class LoadBalancer:
@@ -75,7 +75,7 @@ class LoadBalancer:
         """Choose a server from the list of servers based on the algorithm"""
         
         # check in cache if it is a cache hit check if the server is healthy.
-        redis_client = redis.Redis(connection_pool=connection_pool)
+        redis_client = redis.Redis(connection_pool=CONNECTION_POOL)
         cached_server_key = redis_client.get(client_ip)
         if cached_server_key:
             address, port = cached_server_key.decode("utf-8").split(":")

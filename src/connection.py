@@ -1,9 +1,7 @@
 import socket
 import threading
 from typing import Tuple
-
-
-SERVER_BACKLOG = 10
+from src.config import SERVER_BACKLOG
 
 
 class Connection(socket.socket):
@@ -11,7 +9,7 @@ class Connection(socket.socket):
 
     def __init__(self, server_addr: Tuple[str, int]):
         """
-            server_addr: Tuple(server_ip: str, port: int)
+            :server_addr - Tuple(server_ip: str, port: int)
         """
 
         try: # check the health status of the server before connecting.
