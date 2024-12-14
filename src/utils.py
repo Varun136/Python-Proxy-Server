@@ -34,3 +34,17 @@ def get_port_and_server(url: str) -> Tuple[int, str]:
         webserver = temp_url[:port_pos]
     
     return int(port), webserver.strip()
+
+
+def format_request_data(request :str):
+  """Normalize the url."""
+  formatted_data = {}
+  lines = request.split("\n")
+
+  for i in range(1, len(lines)):
+    line = lines[i]
+    idx = line.find(":")
+    key = line[:idx]
+    value = line[idx+1:].strip()
+    formatted_data[key] = value
+  return formatted_data

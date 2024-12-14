@@ -1,6 +1,6 @@
 """
 A proxy server requires :-
-  :PROXY_SERVER - a server address to bind its socket connection.
+  :PROXY_SERVER - a server address to bind its socket connectionn.
   :BACKEND_SERVERS - list of backend servers for load balancing.
 """
 

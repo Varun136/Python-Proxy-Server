@@ -9,19 +9,18 @@ class Connection(socket.socket):
 
     def __init__(self, server_addr: Tuple[str, int]):
         """
-            :server_addr - Tuple(server_ip: str, port: int)
+        Args:
+            server_addr: (server_host, server_port)
         """
 
-        try: # check the health status of the server before connecting.
-            test_connection = socket.create_connection(server_addr)
-            test_connection.close()
-        except:
-            raise ValueError("Server address invalid or unhealthy.")
-        
-        super().__init__(socket.AF_INET, socket.SOCK_STREAM)
-        self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self.bind(server_addr)
+        try:
+            super().__init__(socket.AF_INET, socket.SOCK_STREAM)
+            self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            self.bind(server_addr)
+            
+        except socket.gaierror or OSError :
+            raise ValueError("Unhealthy or Invalid server address.")
 
         self._ip, self._port = server_addr
         self._addr = server_addr
@@ -40,6 +39,6 @@ class Connection(socket.socket):
     def close_server(self, signum, frame):
         """Close connection"""
         
-        self.shutdown(signum, frame)
+        self.close()
         self.is_alive = False
         print(f"Info: Closing server ({self._ip}:{self._port}) gracefully.")
