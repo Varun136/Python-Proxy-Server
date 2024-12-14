@@ -5,7 +5,7 @@ A proxy server requires :-
 """
 
 from src.proxy import ProxyServer
-from src.constants import BACKEND_SERVERS, PROXY_SERVER
+from src.config import BACKEND_SERVERS, PROXY_SERVER
 
 proxy_server = ProxyServer(PROXY_SERVER, BACKEND_SERVERS)
 proxy_server.start()

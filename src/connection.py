@@ -24,13 +24,16 @@ class Connection(socket.socket):
         self.bind(server_addr)
 
         self._ip, self._port = server_addr
+        self._addr = server_addr
         self._backlog = SERVER_BACKLOG
         self._lock = threading.Lock()
+        self.is_alive = False
 
     def start(self):
         """Start listening on the server."""
 
         self.listen(self._backlog)
+        self.is_alive = True
         print(f"Info: Starting server at {self._ip}:{self._port}")
     
 
@@ -38,4 +41,5 @@ class Connection(socket.socket):
         """Close connection"""
         
         self.shutdown(signum, frame)
+        self.is_alive = False
         print(f"Info: Closing server ({self._ip}:{self._port}) gracefully.")
