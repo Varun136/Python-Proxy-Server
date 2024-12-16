@@ -34,7 +34,7 @@ class LoadBalancer:
         self.__index = 0
         self._check_health = False
         self._health_check_thread = None
-        self.start_health_check()
+        self.__start_health_check()
         
     
     def add_server(self, server_address):
@@ -48,8 +48,8 @@ class LoadBalancer:
             connection.close()
             self._servers[server_address] = True
         except Exception as e:
-            self._servers[server_address] = False
-            raise Exception("Provided server is found unhealthy")
+            return False
+        return True
     
 
     def remove_server(self, server_address):
@@ -57,10 +57,11 @@ class LoadBalancer:
 
         if not self._servers.get(server_address, None):
             print("Warning: Server unavailable to delete")
+            return False
         
         with self._lock:
             del self._servers[server_address]
-        return
+        return True
 
 
     def set_algorithm(self, algorithm):
@@ -81,19 +82,19 @@ class LoadBalancer:
         return
 
 
-    def start_health_check(self):
+    def __start_health_check(self):
         """Start periodic health checking of servers."""
         self._check_health = True
         
         health_check_thread = threading.Thread(
-            target=self._check_server_health,
+            target=self.__check_server_health,
             args=(HEALTH_CHECK_TIME_PERIOD, )
         )
         health_check_thread.daemon = True
         health_check_thread.start()
 
     
-    def _check_server_health(self, interval: int = HEALTH_CHECK_TIME_PERIOD):
+    def __check_server_health(self, interval: int = HEALTH_CHECK_TIME_PERIOD):
         """Check the health status of servers every 10 minutes
         
         interval: time interval between health checks, default: 10 mins
